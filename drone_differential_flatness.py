@@ -39,12 +39,12 @@ class Drone:
         vf = final_constraints[1]
         af = final_constraints[2]
 
-        A = np.array([[t0 ** 5,       t0 ** 4,       t0 ** 3,        t0 ** 2,     t0 ** 1,     1],
-                      [tf ** 5,       tf ** 4,       tf ** 3,        tf ** 2,     tf ** 1,     1],
-                      [5 * t0 ** 4,   4 * t0 ** 3,   3 * t0 ** 2,    2 * t0 ** 1, 1,          0],
-                      [5 * tf ** 4,   4 * tf ** 3,   3 * tf ** 2,    2 * tf ** 1, 1,          0],
-                      [20 * t0 ** 3,  12 * t0 ** 2,  6 * t0 ** 1,    2,          0,          0],
-                      [20 * tf ** 3,  12 * tf ** 2,  6 * tf ** 1,    2,          0,          0]])
+        A = np.array([[1,              t0 ** 1,      t0 ** 2,        t0 ** 3,     t0 ** 4,     t0 ** 5],
+                      [1,              tf ** 1,      tf ** 2,        tf ** 3,     tf ** 4,     tf ** 5],
+                      [0,              1,             2 * t0 ** 1,    3 * t0 ** 2, 4 * t0 ** 3, 5 * t0 ** 4],
+                      [0,              1,             2 * tf ** 1,    3 * tf ** 2, 4 * tf ** 3, 5 * tf ** 4],
+                      [0,              0,             2,              6 * t0 ** 1, 12 * t0 ** 2,20 * t0 ** 3],
+                      [0,              0,             2,              6 * tf ** 1, 12 * tf ** 2,20 * tf ** 3]])
 
         b = np.array([[x0], [xf], [v0], [vf], [a0], [af]])
 
@@ -52,7 +52,6 @@ class Drone:
         c_v = np.polynomial.polynomial.polyder(c_p)
         c_a = np.polynomial.polynomial.polyder(c_v)
         c_j = np.polynomial.polynomial.polyder(c_a)
-
         return (c_p,c_v,c_a,c_j)
 
 
@@ -94,48 +93,42 @@ class Drone:
                self.y_ref[i] = np.polyval(self.c_p_y,self.t[i])
                self.z_ref[i] = np.polyval(self.c_p_z,self.t[i])
 
-            v = np.array([np.polyval(self.c_v_x,self.t[i]),
-                          np.polyval(self.c_v_y,self.t[i]),
-                          np.polyval(self.c_v_z,self.t[i])])
+            v = np.array([np.polyval(self.c_v_x,self.t[i]),np.polyval(self.c_v_y,self.t[i]),np.polyval(self.c_v_z,self.t[i])])
 
-            a = np.array([np.polyval(self.c_a_x,self.t[i]),
-                          np.polyval(self.c_a_y,self.t[i]),
-                          np.polyval(self.c_a_z,self.t[i])])
+            a = np.array([np.polyval(self.c_a_x,self.t[i]),np.polyval(self.c_a_y,self.t[i]),np.polyval(self.c_a_z,self.t[i])])
 
-            jerk = np.array([np.polyval(self.c_j_x,self.t[i]),
-                          np.polyval(self.c_j_y,self.t[i]),
-                          np.polyval(self.c_j_z,self.t[i])])
+            jerk = np.array([np.polyval(self.c_j_x,self.t[i]), np.polyval(self.c_j_y,self.t[i]), np.polyval(self.c_j_z,self.t[i])])
             psi = np.polyval(self.c_p_psi,self.t[i])
             dPsi = np.polyval(self.c_v_psi,self.t[i])
 
-            x_c = np.array([[cos(psi)],
-                            [sin(psi)],
-                            [0]])
+            x_c = np.array([[cos(psi)], [sin(psi)], [0]])
 
-            y_c = np.array([[-sin(psi)],
-                            [cos(psi)],
-                            [0]])
+            y_c = np.array([[-sin(psi)], [cos(psi)], [0]])
 
-            z_w = np.array([[0],
-                            [0],
-                            [1]])
+            z_w = np.array([[0], [0], [1]])
             alpha = a - self.g * z_w -self.dx * v
             beta = a - self.g * z_w -self.dy * v
 
-            x_b = np.cross(y_c,alpha)/np.linalg.norm(np.cross(y_c,alpha))
-            y_b = np.cross(beta,x_b)/np.linalg.norm(np.cross(beta,x_b))
-            z_b = np.cross(x_b,y_b)
-            T = np.transpose(z_b)*(a-self.g*z_w-self.dz*v)
+            print(np.shape(alpha))
 
-            A = np.array([
-                [0, T*(self.dx-self.dx)*np.transpose(z_b)*v, (self.dx-self.dy)*(np.transpose(z_b)*v)],
-                [T-(self.dy-self.dz)*(np.transpose(z_b)*v), 0, -(self.dx-self.dy)*(np.transpose(z_b)*v)],
-                [0,-np.transpose(y_c)*z_b, np.linalg.norm(np.cross(y_c,z_b))]
-            ])
+            x_b = np.cross(alpha,y_c,axis=0)/np.linalg.norm(np.cross(y_c,alpha,axis=0))
+            y_b = np.cross(x_b,beta,axis=0)/np.linalg.norm(np.cross(beta,x_b,axis=0))
+            z_b = np.cross(x_b,y_b,axis=0)
+
+            print(np.shape(y_c))
+            print(np.shape(z_b))
+            print(np.dot(y_c.T,z_b))
+            T = np.dot(z_b.T,a-self.g*z_w-self.dz*v)
+
+            A =np.array([
+                [0, np.ndarray.item(T+(self.dx-self.dx)*np.dot(z_b.T,v)), np.ndarray.item((self.dx-self.dy)*(np.dot(z_b.T,v)))],
+                [np.ndarray.item(T-(self.dy-self.dz)*(np.dot(z_b.T,v))), 0, np.ndarray.item(-(self.dx-self.dy)*(np.dot(x_b.T,v)))],
+                [0, np.ndarray.item(-np.dot(y_c.T,z_b)),np.linalg.norm(np.cross(y_c,z_b,axis=0))]])
+
             b = np.array([
-                [np.transpose(x_b)*jerk-self.dx*np.transpose(x_b)*a],
-                [-np.transpose(y_b)*jerk+self.dy*np.transpose(y_b)*a],
-                [dPsi*np.transpose(x_c)*x_b]
+                [np.ndarray.item(np.dot(x_b.T,jerk)-self.dx*np.dot(x_b.T,a))],
+                [np.ndarray.item(-np.dot(y_b.T,jerk)+self.dy*np.dot(y_b.T,a))],
+                [np.ndarray.item(dPsi*np.dot(x_c.T,x_b))]
             ])
             angular_rate = np.linalg.solve(A,b)
             inputs = np.concatenate((angular_rate,[T]),axis=None)
